@@ -5,6 +5,7 @@ using ContosoShop.Server.Data;
 using ContosoShop.Server.Services;
 using ContosoShop.Shared.Models;
 using System.Text.Json.Serialization;
+using GitHub.Copilot.SDK;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +17,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddOpenApi();
 
 // Configure Entity Framework Core with SQLite
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -32,11 +33,11 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
     options.Password.RequireUppercase = true;
     options.Password.RequiredLength = 8;
     options.Password.RequireNonAlphanumeric = true;
-    
+
     // Lockout settings
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     options.Lockout.MaxFailedAccessAttempts = 5;
-    
+
     // User settings
     options.User.RequireUniqueEmail = true;
 })
@@ -81,6 +82,20 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 // Register order business logic service
 builder.Services.AddScoped<IOrderService, OrderService>();
 
+// Register AI agent tools service
+builder.Services.AddScoped<SupportAgentTools>();
+
+// Register GitHub Copilot SDK client as a singleton
+builder.Services.AddSingleton<CopilotClient>(sp =>
+{
+    var logger = sp.GetRequiredService<ILogger<CopilotClient>>();
+    return new CopilotClient(new CopilotClientOptions
+    {
+        AutoStart = true,
+        LogLevel = "info"
+    });
+});
+
 // Configure CORS with explicit whitelist (T024s - Security hardened)
 builder.Services.AddCors(options =>
 {
@@ -94,6 +109,10 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Ensure CopilotClient is started
+var copilotClient = app.Services.GetRequiredService<CopilotClient>();
+await copilotClient.StartAsync();
 
 // Initialize database with sample data
 using (var scope = app.Services.CreateScope())
@@ -115,8 +134,7 @@ using (var scope = app.Services.CreateScope())
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapOpenApi();
     app.UseWebAssemblyDebugging();
 }
 else

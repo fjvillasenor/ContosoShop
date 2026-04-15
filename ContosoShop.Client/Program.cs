@@ -9,9 +9,9 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Configure HttpClient with base address pointing to API server
-builder.Services.AddScoped(sp => new HttpClient 
-{ 
-    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) 
+builder.Services.AddScoped(sp => new HttpClient
+{
+    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
 });
 
 // Add authentication services
@@ -20,5 +20,9 @@ builder.Services.AddScoped<AuthenticationStateProvider, CookieAuthenticationStat
 
 // Register application services
 builder.Services.AddScoped<IOrderService, OrderService>();
+
+ // Register AI support agent service
+ builder.Services.AddScoped<SupportAgentService>(sp =>
+     new SupportAgentService(sp.GetRequiredService<HttpClient>()));
 
 await builder.Build().RunAsync();
